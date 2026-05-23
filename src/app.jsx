@@ -1671,24 +1671,27 @@ O faturamento mapeado ajudou a priorizar empresas estáveis de nicho (fisioterap
   // If not authenticated, render AuthScreen
   if (authMode !== 'authenticated' && !currentUser) {
     return (
-      <AuthScreen
-        authMode={authMode}
-        setAuthMode={setAuthMode}
-        loginEmail={loginEmail}
-        setLoginEmail={setLoginEmail}
-        loginPassword={loginPassword}
-        setLoginPassword={setLoginPassword}
-        regName={regName}
-        setRegName={setRegName}
-        regEmail={regEmail}
-        setRegEmail={setRegEmail}
-        regPassword={regPassword}
-        setRegPassword={setRegPassword}
-        regRole={regRole}
-        setRegRole={setRegRole}
-        handleLogin={handleLogin}
-        handleRegisterSubmit={handleRegisterSubmit}
-      />
+      <>
+        <AuthScreen
+          authMode={authMode}
+          setAuthMode={setAuthMode}
+          loginEmail={loginEmail}
+          setLoginEmail={setLoginEmail}
+          loginPassword={loginPassword}
+          setLoginPassword={setLoginPassword}
+          regName={regName}
+          setRegName={setRegName}
+          regEmail={regEmail}
+          setRegEmail={setRegEmail}
+          regPassword={regPassword}
+          setRegPassword={setRegPassword}
+          regRole={regRole}
+          setRegRole={setRegRole}
+          handleLogin={handleLogin}
+          handleRegisterSubmit={handleRegisterSubmit}
+        />
+        <Toast toast={toast} />
+      </>
     );
   }
 
