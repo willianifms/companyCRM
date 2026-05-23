@@ -57,7 +57,7 @@ export default function AuthScreen({
               <input 
                 type="email" 
                 required
-                placeholder="Ex: seu-nome@gtm.com"
+                placeholder="Ex: seu-nome@orbita.com"
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs outline-none focus:border-indigo-500 text-slate-200"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
@@ -81,7 +81,7 @@ export default function AuthScreen({
               Ingressar no Workspace Órbita
             </button>
             <div className="p-3 bg-slate-950/50 border border-slate-850 rounded-lg text-center text-[10px] text-slate-500">
-              Acesso Demo: <strong className="text-indigo-400">admin@gtm.com</strong> / senha: <strong className="text-indigo-400">admin</strong>
+              Acesso Demo: <strong className="text-indigo-400">adm@orbita.com</strong> / senha: <strong className="text-indigo-400">admin</strong>
             </div>
           </form>
         ) : (
@@ -102,7 +102,7 @@ export default function AuthScreen({
               <input 
                 type="email" 
                 required
-                placeholder="Ex: lucas@gtm.com"
+                placeholder="Ex: lucas@orbita.com"
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs outline-none focus:border-indigo-500 text-slate-200"
                 value={regEmail}
                 onChange={(e) => setRegEmail(e.target.value)}

@@ -55,9 +55,7 @@ export default function App() {
       try { return JSON.parse(saved); } catch (e) { console.error(e); }
     }
     return [
-      { email: 'admin@gtm.com', name: 'Admin', password: 'admin', role: 'Diretor de RevOps' },
-      { email: 'mariana@gtm.com', name: 'Mariana SDR', password: 'sdr', role: 'SDR Hunter' },
-      { email: 'lucas@gtm.com', name: 'Lucas CDR', password: 'cdr', role: 'CDR Closer' }
+      { email: 'adm@orbita.com', name: 'Admin', password: 'admin', role: 'Diretor de RevOps' }
     ];
   });
 
@@ -71,9 +69,7 @@ export default function App() {
 
   const [teamPresence, setTeamPresence] = useState(() => {
     return [
-      { email: 'admin@gtm.com', name: 'Admin', role: 'Diretor de RevOps', status: 'Online', duration: '1h 45m', lastAction: 'Visualizou Cockpit de Receita', lastActive: Date.now() },
-      { email: 'mariana@gtm.com', name: 'Mariana SDR', role: 'SDR Hunter', status: 'Online', duration: '3h 12m', lastAction: 'Registrou abordagem para Gets Açaí', lastActive: Date.now() - 60000 },
-      { email: 'lucas@gtm.com', name: 'Lucas CDR', role: 'CDR Closer', status: 'Ausente', duration: '50m', lastAction: 'Simulou desconto comercial', lastActive: Date.now() - 900000 }
+      { email: 'adm@orbita.com', name: 'Admin', role: 'Diretor de RevOps', status: 'Online', duration: '0m', lastAction: 'Inicializou cockpit principal', lastActive: Date.now() }
     ];
   });
 
@@ -385,7 +381,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
   const [apolloLeads, setApolloLeads] = useState(() => {
     const saved = localStorage.getItem('gtm_leads');
-    return saved ? JSON.parse(saved) : REAL_COMPANIES_DATABASE;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [clayGrid, setClayGrid] = useState(() => {
@@ -449,9 +445,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
   const [crmDeals, setCrmDeals] = useState(() => {
     const saved = localStorage.getItem('gtm_crm_deals');
-    return saved ? JSON.parse(saved) : [
-      { id: 'd1', name: 'Outbound - Tito Tech', company: 'Tito Tech', value: 8900, stage: 'new', priority: 'high', leadName: 'Diego Tito', riskScore: 'Baixo' }
-    ];
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [dailyReports, setDailyReports] = useState([
@@ -583,25 +577,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     if (!isFirebaseEnabled) return;
 
     const seedDatabase = async () => {
-      // Seed Leads
-      const leadsRef = collection(db, 'leads');
-      const leadsSnap = await getDocs(leadsRef);
-      if (leadsSnap.empty) {
-        console.log("Populando leads padrão no Firestore...");
-        for (const lead of REAL_COMPANIES_DATABASE) {
-          await setDoc(doc(db, 'leads', lead.id), lead);
-        }
-      }
-
-      // Seed Packages
-      const packsRef = collection(db, 'packages');
-      const packsSnap = await getDocs(packsRef);
-      if (packsSnap.empty) {
-        console.log("Populando pacotes comerciais no Firestore...");
-        for (const pack of initialPackages) {
-          await setDoc(doc(db, 'packages', pack.id), pack);
-        }
-      }
+      // Seeding desativado para manter o banco de dados limpo
     };
 
     seedDatabase().catch(console.error);

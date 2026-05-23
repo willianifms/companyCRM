@@ -262,8 +262,4 @@ export const REAL_COMPANIES_DATABASE = [
   }
 ];
 
-export const initialPackages = [
-  { id: 'p1', name: 'Setup Outbound SDR Start', price: 4500, maxDiscount: 15, duration: 'Mensal', description: 'Estruturação de fluxo frio, aquecimento de 3 inboxes e entrega de 50 leads validados por semana.' },
-  { id: 'p2', name: 'Máquina Comercial CDR Scale', price: 8900, maxDiscount: 20, duration: 'Mensal', description: 'Atração multicanal avançada (LinkedIn + Cold Email) e foco em agendamentos qualificados.' },
-  { id: 'p3', name: 'Revenue Engine Enterprise', price: 16500, maxDiscount: 25, duration: 'Trimestral', description: 'GTM OS completo: Integração com HubSpot/Salesforce, playbooks de ICP dinâmicos e auditoria de compliance.' }
-];
+export const initialPackages = [];
