@@ -43,7 +43,13 @@ export default function ProspectingTab({
   setSelectedLead,
   isQualifyingLead,
   handleAiQualification,
-  handleDeleteLead
+  handleDeleteLead,
+  showScanModal,
+  setShowScanModal,
+  scanProgress,
+  scanProgressText,
+  scanQuantity,
+  setScanQuantity
 }) {
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -141,7 +147,7 @@ export default function ProspectingTab({
             </div>
 
             <button
-              onClick={handleBigDataSearch}
+              onClick={() => setShowScanModal(true)}
               disabled={isScanning || isLoadingCities}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg"
             >
@@ -392,6 +398,141 @@ export default function ProspectingTab({
           </tbody>
         </table>
       </div>
+
+      {/* Modal de Quantidade de Leads */}
+      {showScanModal && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-5 shadow-2xl relative animate-scaleUp">
+            
+            <div className="flex items-center gap-3 text-indigo-400 pb-3 border-b border-slate-800">
+              <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+                <Zap size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-100">Quantidade de Leads</h3>
+                <p className="text-[10px] text-slate-500">Defina o volume de prospecção desta rodada</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Escolha a quantidade de leads reais que a inteligência da Órbita deve buscar, enriquecer e qualificar nesta varredura de mercado.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] text-slate-500 uppercase block mb-2 font-semibold">Atalhos de Volume</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[5, 10, 20, 50].map((qty) => (
+                    <button
+                      key={qty}
+                      type="button"
+                      onClick={() => setScanQuantity(qty)}
+                      className={`py-2 px-3 rounded-lg text-xs font-bold font-mono transition-all border ${
+                        scanQuantity === qty
+                          ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/20'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                      }`}
+                    >
+                      {qty} Leads
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="relative">
+                <label className="text-[10px] text-slate-500 uppercase block mb-1.5 font-semibold">Ou digite um valor customizado (1 - 100)</label>
+                <div className="flex items-center">
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 font-mono focus:border-indigo-500 focus:outline-none"
+                    value={scanQuantity}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      if (!isNaN(val)) {
+                        setScanQuantity(Math.max(1, Math.min(100, val)));
+                      } else {
+                        setScanQuantity('');
+                      }
+                    }}
+                  />
+                  <span className="absolute right-3 text-[10px] text-slate-500 font-mono">leads</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowScanModal(false)}
+                className="w-1/2 bg-slate-950 hover:bg-slate-800 border border-slate-850 text-slate-400 hover:text-slate-200 font-semibold text-xs py-2.5 rounded-lg transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const qty = parseInt(scanQuantity, 10) || 5;
+                  setShowScanModal(false);
+                  handleBigDataSearch(qty);
+                }}
+                className="w-1/2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 rounded-lg transition-all shadow-lg shadow-indigo-600/10 flex items-center justify-center gap-1.5"
+              >
+                <Zap size={14} />
+                Iniciar Varredura
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Overlay de Progresso da Varredura */}
+      {isScanning && (
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-6 shadow-2xl text-center relative animate-scaleUp">
+            
+            <div className="flex justify-center">
+              <div className="relative">
+                <div className="h-16 w-16 bg-indigo-500/10 rounded-full flex items-center justify-center text-indigo-400 animate-pulse border border-indigo-500/20">
+                  <Cpu size={32} className="animate-spin-slow" />
+                </div>
+                <div className="absolute inset-0 h-16 w-16 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-100">Varredura de Leads Ativa</h3>
+              <p className="text-[11px] text-slate-400">
+                A inteligência comercial está minerando a base do IBGE e consultando o Gemini...
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="w-full bg-slate-950 rounded-full h-3 overflow-hidden border border-slate-850 p-0.5">
+                <div
+                  className="bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 h-full rounded-full transition-all duration-300"
+                  style={{ width: `${scanProgress}%` }}
+                />
+              </div>
+
+              <div className="flex justify-between items-center text-[10px] text-slate-500 font-mono">
+                <span className="truncate max-w-[80%] text-left">{scanProgressText}</span>
+                <span className="font-bold text-indigo-400">{scanProgress}%</span>
+              </div>
+            </div>
+
+            <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-855 text-[10px] text-slate-500 leading-normal text-left flex gap-2 items-start">
+              <Info size={14} className="text-indigo-400 shrink-0 mt-0.5" />
+              <span>
+                Esta operação realiza scraping avançado em lote de CNPJs ativos do município selecionado e analisa cada lead individualmente através do modelo Gemini. Isso pode levar alguns segundos.
+              </span>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }

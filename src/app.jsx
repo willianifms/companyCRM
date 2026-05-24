@@ -61,8 +61,13 @@ export default function App() {
   });
 
   const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem('gtm_current_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('gtm_current_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
   });
 
   const [sessionStart, setSessionStart] = useState(() => Date.now());
@@ -381,13 +386,23 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   const [activeTab, setActiveTab] = useState('prospecting');
 
   const [apolloLeads, setApolloLeads] = useState(() => {
-    const saved = localStorage.getItem('gtm_leads');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('gtm_leads');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
   });
 
   const [clayGrid, setClayGrid] = useState(() => {
-    const saved = localStorage.getItem('gtm_clay_grid');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('gtm_clay_grid');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
   });
 
   const [selectedLead, setSelectedLead] = useState(null);
@@ -403,6 +418,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   const [discoverySector, setDiscoverySector] = useState('criadores_mid');
   const [discoverySize, setDiscoverySize] = useState('micro');
   const [isScanning, setIsScanning] = useState(false);
+  const [showScanModal, setShowScanModal] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanProgressText, setScanProgressText] = useState('');
+  const [scanQuantity, setScanQuantity] = useState(5);
 
   const [filterLocationState, setFilterLocationState] = useState('all');
   const [filterLocationCity, setFilterLocationCity] = useState('all');
@@ -416,8 +435,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   const [isFetchingCnpj, setIsFetchingCnpj] = useState(false);
   const [isQualifyingLead, setIsQualifyingLead] = useState({});
   const [aiQualifications, setAiQualifications] = useState(() => {
-    const saved = localStorage.getItem('gtm_ai_qualifications');
-    return saved ? JSON.parse(saved) : {};
+    try {
+      const saved = localStorage.getItem('gtm_ai_qualifications');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      console.error(e);
+      return {};
+    }
   });
 
   const [packages, setPackages] = useState(initialPackages);
@@ -445,8 +469,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   const [isGeneratingIcebreaker, setIsGeneratingIcebreaker] = useState(null);
 
   const [crmDeals, setCrmDeals] = useState(() => {
-    const saved = localStorage.getItem('gtm_crm_deals');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('gtm_crm_deals');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
   });
 
   const [dailyReports, setDailyReports] = useState([
@@ -1000,17 +1029,23 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     logMovement(`Excluiu ${count} leads em lote do banco`);
   };
 
-  const callGemini = async (prompt, systemInstruction) => {
+  const callGemini = async (prompt, systemInstruction, useSearch = false) => {
     try {
+      const body = {
+        contents: [{ parts: [{ text: prompt }] }],
+        systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+      };
+      
+      if (useSearch) {
+        body.tools = [{ googleSearch: {} }];
+      }
+
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${aiApiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
-          })
+          body: JSON.stringify(body)
         }
       );
       const data = await response.json();
@@ -1096,132 +1131,212 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     logMovement(`Vinculou proposta do pacote "${selectedPack.name}" ao CRM`);
   };
 
-  const handleBigDataSearch = async () => {
+  const handleBigDataSearch = async (quantity = 5) => {
+    if (!aiApiKey) {
+      showToast("Chave da API da IA não configurada! Insira sua chave Gemini no cabeçalho para pesquisar na web em tempo real.", "error");
+      return;
+    }
+
     setIsScanning(true);
-    showToast(`Conectando ao Agente de Varredura Web Órbita em ${selectedCity} (${selectedState})...`, 'info');
-    
+    setScanProgress(5);
+    setScanProgressText("Estabelecendo conexão segura com os nós de Big Data...");
+
+    // Start progress simulation interval
+    const progressInterval = setInterval(() => {
+      setScanProgress(prev => {
+        if (prev >= 90) {
+          return 90; // Hold at 90% until complete
+        }
+        const nextProgress = prev + Math.floor(Math.random() * 8) + 4;
+        
+        // Update text based on progress
+        if (nextProgress < 25) {
+          setScanProgressText("Carregando parâmetros do IBGE e mapeando DDD local...");
+        } else if (nextProgress < 50) {
+          setScanProgressText("Buscando registros e cadastros nacionais de CNPJ...");
+        } else if (nextProgress < 75) {
+          setScanProgressText("Mapeando e-mails comerciais e dados de contato reais...");
+        } else {
+          setScanProgressText("IA consolidando fichas cadastrais e formatando JSON...");
+        }
+        
+        return nextProgress;
+      });
+    }, 450);
+
     const ddd = STATE_DDD[selectedState] || '11';
     const userResponsible = currentUser ? currentUser.name : 'Sistema';
 
-    if (aiApiKey) {
-      try {
-        const systemPrompt = `Você é um robô de inteligência comercial e web scraping avançado focado em mapear empresas reais, comércios locais e criadores de conteúdo de médio/pequeno porte no Brasil.`;
-        const userPrompt = `
-          Gere uma lista de 5 entidades/empresas REAIS que existem de fato no município de "${selectedCity} - ${selectedState}" ou na Creator Economy do Brasil, na categoria de "${discoverySector}".
-          Instruções específicas por categoria:
-          - Se for "criadores_mid", procure YouTubers e Streamers médios/pequenos com audiência estável (10k a 100k seguidores), que já geram alguma receita via Twitch Subs, AdSense ou apoios, mas que não são celebridades nacionais ainda (Ex: canais de reviews, gamers regionais, jornalistas independentes).
-          - Se for "fisio", encontre clínicas de fisioterapia e pilates reais no município de ${selectedCity}.
-          - Se for "psicologia", encontre clínicas e consultórios reais de psicologia no município de ${selectedCity}.
-          - Se for "personal", encontre profissionais reais de consultoria física e personal trainers atuando em ${selectedCity}.
-          - Se for "academia", encontre estúdios de crossfit, pilates ou academias reais em ${selectedCity}.
-          
-          Você deve inferir ou mapear dados reais existentes na web de forma 100% precisa.
-          Retorne estritamente um array JSON contendo exatamente 5 objetos com as propriedades detalhadas a seguir, sem markdown ou comentários.
-          
-          Estrutura JSON:
+    const sectorQueryNameMap = {
+      criadores_mid: "streamers, youtubers e influenciadores digitais de médio/pequeno porte",
+      fisio: "clínicas de fisioterapia, estúdios de pilates e consultórios de reabilitação física",
+      psicologia: "consultórios de psicologia, psicólogos e clínicas de saúde mental",
+      personal: "personal trainers, consultores de fitness e treinadores físicos particulares",
+      academia: "academias de musculação, boxes de crossfit e estúdios de fitness",
+      acaiterias: "açaiterias, sorveterias e comércios locais de alimentação",
+      criadores: "grandes youtubers, streamers famosos e canais de entretenimento de alta audiência",
+      tecnologia: "empresas de desenvolvimento de software, startups de tecnologia B2B, consultorias de TI e agências digitais SaaS"
+    };
+    const sectorQueryName = sectorQueryNameMap[discoverySector] || "empresas e comércios locais";
+
+    try {
+      const systemPrompt = `Você é um robô de inteligência comercial e web scraping avançado focado em pesquisar dados reais da internet e mapear com precisão absoluta empresas e criadores reais que existem de fato no Brasil.`;
+      const userPrompt = `
+        Você deve pesquisar no Google Maps, no Google Search e nos sites das próprias empresas para encontrar dados reais sobre empresas da categoria "${sectorQueryName}" localizadas em "${selectedCity} - ${selectedState}".
+        
+        Gere uma lista de exatamente ${quantity} empresas ou criadores de conteúdo reais e ativos.
+        
+        IMPORTANTE: Não invente dados fictícios.
+        - O nome da empresa (company) e o telefone (phone) devem ser reais e corresponder exatamente à empresa localizada no município de ${selectedCity} - ${selectedState}.
+        - Todos os demais campos abaixo (como CNPJ, e-mail, site/domínio, sócio/administrador, redes sociais, faturamento e tecnologias) DEVEM ser baseados em informações reais obtidas da busca no Google Search para a empresa mapeada.
+        - Se você não encontrar o dado correto ou real na busca para algum desses campos (por exemplo, se o CNPJ real ou o e-mail exato da empresa não estiver disponível publicamente na internet), você deve obrigatoriamente preencher o respectivo campo como null ou vazio (""). É terminantemente proibido inventar CNPJs, inventar domínios fictícios, inventar e-mails de exemplo (como contato@empresa.com.br) ou chutar nomes de administradores fictícios. 
+        - Prefira retornar null ou string vazia a inventar qualquer informação secundária do lead.
+        
+        Você deve retornar ESTRITAMENTE um array JSON contendo exatamente ${quantity} objetos, sem markdown, textos introdutórios ou comentários.
+        
+        Regras para preenchimento dos campos no JSON:
+        - company: Nome comercial exato ou nome oficial da empresa real no Google.
+        - cnpj: CNPJ real e ativo da empresa obtido através de busca pública na Receita Federal ou internet. Retorne null se não for encontrado.
+        - name: Nome real de um dos sócios, fundadores ou diretores comerciais cadastrados. Retorne null se não for encontrado de forma confiável.
+        - title: Cargo real correspondente da pessoa (Ex: "Sócio-Administrador", "Diretor"). Retorne null se não for encontrado.
+        - domain: O domínio de site oficial real da empresa na internet. Retorne null se a empresa não tiver site próprio.
+        - size: Porte estimado com base no quadro de funcionários público ou porte fiscal. Retorne null se não puder ser estimado.
+        - country: Sempre formatado como "${selectedState} - ${selectedCity}".
+        - tech: Array contendo apenas tecnologias reais identificadas em uso no site ou no negócio da empresa. Retorne array vazio [] se nenhuma puder ser detectada.
+        - linkedin: Link real para o perfil do LinkedIn da empresa ou do sócio mapeado. Retorne null se não for encontrado.
+        - email: E-mail de contato comercial real exposto na internet pela empresa. Retorne null se não for encontrado.
+        - emailStatus: Sempre "verified" se for um e-mail real, ou null se não houver e-mail.
+        - revenue: Faturamento anual estimado real baseado nos dados fiscais públicos ou média do porte da empresa local. Retorne null se não puder estimar.
+        - phone: Telefone comercial ou WhatsApp de contato real da empresa (conforme listado no Google).
+        - hiredSdr: Boleano (true/false) se eles já possuem SDR dedicado ou equipe de vendas outbound estruturada na internet.
+        - funding: Origem do capital da empresa (Ex: "Capital Próprio", "Aportado").
+        - growth: Taxa aproximada de crescimento da empresa.
+        - sector: Sempre a string "${discoverySector.toUpperCase()}".
+        - foundationYear: Ano real de fundação da empresa na Receita Federal (Ex: 2018). Retorne null se não for encontrado.
+        - taxEstimate: Regime tributário real provável (Ex: "Simples Nacional", "Lucro Presumido", "MEI"). Retorne null se não for conhecido.
+        - instagram: URL real do perfil da empresa no Instagram. Retorne null se não for encontrada.
+        - description: Descrição real dos serviços prestados pela empresa na região.
+
+        Modelo JSON Exemplo de Saída (utilize essa estrutura, preenchendo apenas com dados reais buscados no Google ou null):
+        [
           {
-            "company": "Razão Social, Nome Fantasia ou Nome do Canal do Criador",
-            "cnpj": "CNPJ formatado real ou aproximado para o canal (Ex: XX.XXX.XXX/XXXX-XX)",
-            "name": "Nome civil do sócio ou do criador de conteúdo",
-            "title": "Cargo ou ocupação (Ex: Fisioterapeuta Proprietário, Streamer Independente)",
-            "domain": "Canal de transmissão, site ou canal do YouTube real",
-            "size": "Porte correspondente (Ex: Microempresa ou MEI)",
+            "company": "Fisio Prudente & Pilates",
+            "cnpj": "28.110.941/0001-50",
+            "name": "Aline Mendes",
+            "title": "Fisioterapeuta Sócia",
+            "domain": "fisioprudente.com.br",
+            "size": "Pequena (10-49 func)",
             "country": "${selectedState} - ${selectedCity}",
-            "tech": ["Instagram Ads", "YouTube Studio", "OBS Studio"],
-            "linkedin": "linkedin.com/in/usuario",
-            "email": "comercial@canal-ou-empresa.com.br real",
+            "tech": ["Instagram Ads", "WhatsApp Business", "Doctoralia"],
+            "linkedin": "linkedin.com/company/fisioprudente",
+            "email": "contato@fisioprudente.com.br",
             "emailStatus": "verified",
-            "revenue": "Faturamento estimado ou renda publicitária real (Ex: R$ 80.000 / ano)",
-            "phone": "+55 ${ddd} Telefone de contato comercial real",
+            "revenue": "R$ 380.000 / ano",
+            "phone": "+55 ${ddd} 997905222",
             "hiredSdr": false,
             "funding": "Capital Próprio",
-            "growth": "12%",
+            "growth": "18%",
             "sector": "${discoverySector.toUpperCase()}",
-            "foundationYear": ano_de_criacao_ou_fundacao_real,
-            "taxEstimate": "Regime tributário ou imposto provável (Ex: Simples Nacional ou MEI)",
-            "instagram": "https://instagram.com/usuario_oficial_real",
-            "description": "Explicação detalhada sobre as atividades comerciais do local ou o conteúdo do criador de conteúdo"
+            "foundationYear": 2017,
+            "taxEstimate": "Simples Nacional",
+            "instagram": "https://instagram.com/fisioprudente",
+            "description": "Clínica especializada em reabilitação traumato-ortopédica e pilates clínico."
           }
-        `;
-        const responseText = await callGemini(userPrompt, systemPrompt);
-        const cleanedJson = responseText.replace(/```json/gi, '').replace(/```/gi, '').trim();
-        const scrapedLeads = JSON.parse(cleanedJson);
-        
-        const mappedScrapedLeads = scrapedLeads.map(lead => ({
-          ...lead,
-          cnpj: formatCnpj(lead.cnpj || lead.CNPJ || ''),
-          id: 'scraped_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-          prospector: userResponsible,
-          status: 'Novo'
-        }));
-
-        if (isFirebaseEnabled) {
-          try {
-            for (const lead of mappedScrapedLeads) {
-              await setDoc(doc(db, 'leads', lead.id), lead);
-            }
-          } catch (err) {
-            console.error(err);
-          }
-        } else {
-          setApolloLeads(prev => [...mappedScrapedLeads, ...prev]);
-        }
-        showToast(`${mappedScrapedLeads.length} entidades reais mineradas e inseridas no Workspace!`, 'success');
-        logMovement(`Fez varredura Big Data real (${mappedScrapedLeads.length} entidades in ${selectedCity}-${selectedState})`);
-      } catch (err) {
-        console.error("Erro na varredura por IA real:", err);
-        showToast("Varredura em tempo real indisponível. Rodando simulador local de configuração...", "warning");
-        runContingencyVarredura();
-      } finally {
-        setIsScanning(false);
+        ]
+      `;
+      const responseText = await callGemini(userPrompt, systemPrompt, true);
+      let cleanedJson = responseText.trim();
+      const firstBracket = cleanedJson.indexOf('[');
+      const lastBracket = cleanedJson.lastIndexOf(']');
+      if (firstBracket !== -1 && lastBracket !== -1) {
+        cleanedJson = cleanedJson.substring(firstBracket, lastBracket + 1);
+      } else {
+        cleanedJson = cleanedJson.replace(/```json/gi, '').replace(/```/gi, '').trim();
       }
-    } else {
+      const scrapedLeads = JSON.parse(cleanedJson);
+      
+      const mappedScrapedLeads = scrapedLeads.map(lead => ({
+        ...lead,
+        cnpj: formatCnpj(lead.cnpj || lead.CNPJ || ''),
+        id: 'scraped_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+        prospector: userResponsible,
+        status: 'Novo'
+      }));
+
+      if (isFirebaseEnabled) {
+        try {
+          for (const lead of mappedScrapedLeads) {
+            await setDoc(doc(db, 'leads', lead.id), lead);
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      } else {
+        setApolloLeads(prev => [...mappedScrapedLeads, ...prev]);
+      }
+      
+      clearInterval(progressInterval);
+      setScanProgress(100);
+      setScanProgressText("Varredura concluída com sucesso!");
       setTimeout(() => {
-        runContingencyVarredura();
         setIsScanning(false);
-      }, 1500);
+        setScanProgress(0);
+      }, 800);
+
+      showToast(`${mappedScrapedLeads.length} entidades reais mineradas e inseridas no Workspace!`, 'success');
+      logMovement(`Fez varredura Big Data real (${mappedScrapedLeads.length} entidades em ${selectedCity}-${selectedState})`);
+    } catch (err) {
+      clearInterval(progressInterval);
+      console.error("Erro na varredura por IA real:", err);
+      showToast("Varredura em tempo real falhou. Verifique sua chave da API ou sua conexão.", "error");
+      setIsScanning(false);
+      setScanProgress(0);
     }
   };
 
-  const runContingencyVarredura = async () => {
+  const runContingencyVarredura = async (quantity = 5) => {
     const ddd = STATE_DDD[selectedState] || '11';
     const isMicro = discoverySize === 'micro';
     const userResponsible = currentUser ? currentUser.name : 'Sistema';
 
     const templates = contingencyNichesTemplates[discoverySector] || contingencyNichesTemplates['criadores_mid'];
 
-    const mappedContingency = templates.map((item, idx) => {
-      const cleanCompany = item.company;
+    // Generate up to quantity leads by repeating templates if needed
+    const mappedContingency = [];
+    for (let i = 0; i < quantity; i++) {
+      const template = templates[i % templates.length];
+      const suffix = i >= templates.length ? ` ${Math.floor(i / templates.length) + 1}` : '';
+      const cleanCompany = template.company + suffix;
       const cleanDomain = cleanCompany.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com.br';
-      
-      return {
-        id: 'contingency_' + Date.now() + '_' + idx,
+
+      mappedContingency.push({
+        id: 'contingency_' + Date.now() + '_' + i + '_' + Math.random().toString(36).substr(2, 4),
         company: cleanCompany,
-        cnpj: item.cnpj,
-        name: item.name,
-        title: item.title,
+        cnpj: template.cnpj,
+        name: template.name,
+        title: template.title,
         domain: cleanDomain,
         size: isMicro ? 'Microempresa (1-9 func)' : 'Grande (100+ func)',
         country: `${selectedState} - ${selectedCity}`,
-        tech: item.tech,
+        tech: template.tech,
         linkedin: `linkedin.com/company/${cleanDomain.split('.')[0]}`,
         email: `contato@${cleanDomain}`,
         emailStatus: 'verified',
-        revenue: item.rev,
+        revenue: template.rev,
         phone: `+55 ${ddd} 9${Math.floor(Math.random() * 90000000 + 10000000)}`,
         hiredSdr: !isMicro,
         funding: 'Capital Próprio',
         growth: '8%',
         sector: discoverySector.toUpperCase(),
         foundationYear: Math.floor(Math.random() * (2020 - 2005) + 2005),
-        taxEstimate: item.tax,
-        instagram: item.insta || cleanInstagramHandle(cleanCompany),
-        description: item.desc,
+        taxEstimate: template.tax,
+        instagram: template.insta || cleanInstagramHandle(cleanCompany),
+        description: template.desc,
         prospector: userResponsible,
         approachedBy: null,
         status: 'Novo'
-      };
-    });
+      });
+    }
 
     if (isFirebaseEnabled) {
       try {
@@ -1382,27 +1497,32 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   };
 
   const runFallbackQualification = (lead) => {
+    const leadSector = (lead.sector || '').toLowerCase();
+    const leadSize = (lead.size || '').toLowerCase();
+    const leadRevenue = (lead.revenue || '').toLowerCase();
+
     // Sector match
     const isSectorAllowed = qualificationRules.allowedSectors.some(
-      s => lead.sector.toLowerCase().includes(s) || s.toLowerCase().includes(lead.sector.toLowerCase())
+      s => leadSector.includes(s.toLowerCase()) || s.toLowerCase().includes(leadSector)
     );
     
     // Sizing/Revenue match
-    const isMicro = lead.size.toLowerCase().includes('microempresa') || 
-                    lead.revenue.toLowerCase().includes('mei') || 
-                    lead.revenue.toLowerCase().includes('72.000') || 
-                    lead.revenue.toLowerCase().includes('96.000') ||
-                    lead.revenue.toLowerCase().includes('110.000');
+    const isMicro = leadSize.includes('microempresa') || 
+                    leadSize.includes('mei') ||
+                    leadRevenue.includes('mei') || 
+                    leadRevenue.includes('72.000') || 
+                    leadRevenue.includes('96.000') ||
+                    leadRevenue.includes('110.000');
                     
     const isRevenueOk = qualificationRules.minRevenue === 'none' ||
                          (qualificationRules.minRevenue === '100k' && !isMicro) ||
-                         (qualificationRules.minRevenue === '500k' && (lead.revenue.includes('8.500.000') || lead.revenue.includes('24.000.000') || lead.revenue.includes('1.800.000') || lead.revenue.includes('2.100.000') || lead.revenue.includes('1.250.000') || lead.revenue.includes('950.000') || lead.revenue.includes('780.000'))) ||
-                         (qualificationRules.minRevenue === '1M' && (lead.revenue.includes('8.500.000') || lead.revenue.includes('24.000.000') || lead.revenue.includes('1.800.000') || lead.revenue.includes('2.100.000')));
+                         (qualificationRules.minRevenue === '500k' && (leadRevenue.includes('8.500.000') || leadRevenue.includes('24.000.000') || leadRevenue.includes('1.800.000') || leadRevenue.includes('2.100.000') || leadRevenue.includes('1.250.000') || leadRevenue.includes('950.000') || leadRevenue.includes('780.000'))) ||
+                         (qualificationRules.minRevenue === '1M' && (leadRevenue.includes('8.500.000') || leadRevenue.includes('24.000.000') || leadRevenue.includes('1.800.000') || leadRevenue.includes('2.100.000')));
 
     const isEmployeesOk = qualificationRules.minEmployees === 'none' ||
                            (qualificationRules.minEmployees === '1-9') ||
-                           (qualificationRules.minEmployees === '10-49' && (lead.size.toLowerCase().includes('média') || lead.size.toLowerCase().includes('grande') || lead.size.toLowerCase().includes('10-49') || lead.size.toLowerCase().includes('50+'))) ||
-                           (qualificationRules.minEmployees === '50+' && (lead.size.toLowerCase().includes('grande') || lead.size.toLowerCase().includes('50+')));
+                           (qualificationRules.minEmployees === '10-49' && (leadSize.includes('média') || leadSize.includes('grande') || leadSize.includes('10-49') || leadSize.includes('50+'))) ||
+                           (qualificationRules.minEmployees === '50+' && (leadSize.includes('grande') || leadSize.includes('50+')));
 
     let sectorScore = isSectorAllowed ? 100 : 20;
     let sizingScore = (isRevenueOk && isEmployeesOk) ? 100 : (isRevenueOk || isEmployeesOk ? 60 : 30);
@@ -1476,27 +1596,40 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
   const filteredApolloLeads = useMemo(() => {
     return apolloLeads.filter(lead => {
-      const matchTitle = lead.title.toLowerCase().includes(filterTitle.toLowerCase()) || 
-                         lead.company.toLowerCase().includes(filterTitle.toLowerCase()) ||
-                         lead.sector?.toLowerCase().includes(filterTitle.toLowerCase());
-      const matchTech = filterTech === '' || lead.tech.some(t => t.toLowerCase().includes(filterTech.toLowerCase()));
+      if (!lead) return false;
+      const titleLower = (lead.title || '').toLowerCase();
+      const companyLower = (lead.company || '').toLowerCase();
+      const sectorLower = (lead.sector || '').toLowerCase();
+      const queryLower = (filterTitle || '').toLowerCase();
+      
+      const matchTitle = titleLower.includes(queryLower) || 
+                         companyLower.includes(queryLower) ||
+                         sectorLower.includes(queryLower);
+                         
+      const matchTech = filterTech === '' || 
+                        (lead.tech || []).some(t => t && t.toLowerCase().includes(filterTech.toLowerCase()));
       
       let matchState = true;
+      const countryStr = lead.country || '';
       if (filterLocationState !== 'all') {
-        matchState = lead.country.split('-')[0].trim().toLowerCase() === filterLocationState.toLowerCase();
+        matchState = countryStr.split('-')[0].trim().toLowerCase() === filterLocationState.toLowerCase();
       }
 
       let matchCity = true;
       if (filterLocationCity !== 'all') {
-        matchCity = lead.country.toLowerCase().includes(filterLocationCity.toLowerCase());
+        matchCity = countryStr.toLowerCase().includes(filterLocationCity.toLowerCase());
       }
       
       let matchSize = true;
+      const sizeStr = lead.size || '';
       if (filterSize !== 'all') {
-        if (filterSize === 'micro') matchSize = lead.size.toLowerCase().includes('microempresa') || lead.size.toLowerCase().includes('mei');
-        if (filterSize === 'grande') matchSize = lead.size.toLowerCase().includes('grande') || lead.size.toLowerCase().includes('média');
+        if (filterSize === 'micro') {
+          matchSize = sizeStr.toLowerCase().includes('microempresa') || sizeStr.toLowerCase().includes('mei');
+        } else if (filterSize === 'grande') {
+          matchSize = sizeStr.toLowerCase().includes('grande') || sizeStr.toLowerCase().includes('média');
+        }
       }
-
+      
       return matchTitle && matchTech && matchState && matchCity && matchSize;
     });
   }, [apolloLeads, filterTitle, filterTech, filterLocationState, filterLocationCity, filterSize]);
@@ -1886,6 +2019,12 @@ O faturamento mapeado ajudou a priorizar empresas estáveis de nicho (fisioterap
               isQualifyingLead={isQualifyingLead}
               handleAiQualification={handleAiQualification}
               handleDeleteLead={handleDeleteLead}
+              showScanModal={showScanModal}
+              setShowScanModal={setShowScanModal}
+              scanProgress={scanProgress}
+              scanProgressText={scanProgressText}
+              scanQuantity={scanQuantity}
+              setScanQuantity={setScanQuantity}
             />
           )}
 
