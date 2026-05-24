@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  BR_STATES, STATE_DDD, REAL_COMPANIES_DATABASE, initialPackages 
+  BR_STATES, STATE_DDD, REAL_COMPANIES_DATABASE, initialPackages, contingencyNichesTemplates 
 } from './constants/mockData';
 
 // Firebase imports
@@ -35,6 +35,7 @@ import ReportsTab from './components/reports/ReportsTab';
 import ICPTab from './components/icp/ICPTab';
 import CommercialTab from './components/commercial/CommercialTab';
 import ProspectingTab from './components/prospecting/ProspectingTab';
+import QualificationTab from './components/qualification/QualificationTab';
 import EnrichmentTab from './components/enrichment/EnrichmentTab';
 import WorkflowsTab from './components/workflows/WorkflowsTab';
 import CrmTab from './components/crm/CrmTab';
@@ -461,6 +462,23 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     "Nossa empresa comercializa assessorias de crescimento B2B e automações. Buscamos empresas de médio/grande porte (headcount > 10 ou faturamento robusto no Simples/Lucro Presumido) ou comércios locais estáveis. Evitar MEIs sem capacidade financeira."
   );
 
+  const [qualificationRules, setQualificationRules] = useState(() => {
+    const saved = localStorage.getItem('gtm_qualification_rules');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    return {
+      minRevenue: '100k', // 'none', '100k', '500k', '1M'
+      minEmployees: 'none', // 'none', '1-9', '10-49', '50+'
+      allowedSectors: ['tecnologia', 'academia', 'fisio', 'psicologia', 'criadores_mid'],
+      requiredTechs: '',
+      minFitScore: 70,
+      weightSector: 40,
+      weightTech: 30,
+      weightSizing: 30
+    };
+  });
+
   // --- FIREBASE SYNC SUBSCRIPTIONS ---
   useEffect(() => {
     if (!isFirebaseEnabled) return;
@@ -559,6 +577,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       }
     });
 
+    // Listen to qualification rules
+    const unsubscribeQualRules = onSnapshot(doc(db, 'metadata', 'qualificationRules'), (docSnap) => {
+      if (docSnap.exists()) {
+        setQualificationRules(docSnap.data());
+      }
+    });
+
     return () => {
       unsubscribeAuth();
       unsubscribePresence();
@@ -569,6 +594,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       unsubscribePacks();
       unsubscribeGuidelines();
       unsubscribeWorkflows();
+      unsubscribeQualRules();
     };
   }, []);
 
@@ -658,8 +684,17 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
   const customSetCompanyGuidelines = async (text) => {
     setCompanyGuidelines(text);
+    localStorage.setItem('gtm_guidelines', text);
     if (isFirebaseEnabled) {
       await setDoc(doc(db, 'metadata', 'guidelines'), { text });
+    }
+  };
+
+  const customSetQualificationRules = async (rules) => {
+    setQualificationRules(rules);
+    localStorage.setItem('gtm_qualification_rules', JSON.stringify(rules));
+    if (isFirebaseEnabled) {
+      await setDoc(doc(db, 'metadata', 'qualificationRules'), rules);
     }
   };
 
@@ -1153,34 +1188,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     const isMicro = discoverySize === 'micro';
     const userResponsible = currentUser ? currentUser.name : 'Sistema';
 
-    const localNiches = {
-      acaiterias: [
-        { company: 'Top Açaí Presidente Prudente', cnpj: '25.109.841/0001-90', name: 'Roberto de Barros', title: 'Proprietário', tech: ['Instagram Ads', 'iFood'], rev: 'R$ 380.000 / ano', tax: 'Simples Nacional', desc: 'Açaiteria artesanal na Rua Ribeiro de Barros com forte operação local de entregas rápidas.', insta: 'https://instagram.com/topacaiprudente' },
-        { company: 'Gets Açaí', cnpj: '34.201.883/0001-12', name: 'Juliana Gets', title: 'Gerente Geral', tech: ['Instagram Ads', 'WhatsApp Cloud API'], rev: 'R$ 520.000 / ano', tax: 'Simples Nacional', desc: 'Especializada em açaí no copo com acompanhamentos gourmet localizada na Av. Quatorze de Setembro.', insta: 'https://instagram.com/getsacai' }
-      ],
-      criadores: [
-        { company: 'Victor Augusto (LOUD Coringa)', cnpj: '39.421.564/0001-81', name: 'Victor Augusto', title: 'Streamer / Influenciador', tech: ['Twitch API', 'OBS Studio'], rev: 'R$ 8.500.000 / ano', tax: 'Lucro Presumido', desc: 'Um dos maiores streamers de GTA RP e entretenimento digital da Twitch.', insta: 'https://instagram.com/loud_coringa' },
-        { company: 'Casimiro Miguel (CazéTV)', cnpj: '45.890.312/0001-09', name: 'Casimiro Miguel', title: 'CEO & Criador', tech: ['YouTube Live', 'vMix'], rev: 'R$ 24.000.000 / ano', tax: 'Lucro Presumido', desc: 'Ecossistema pioneiro em transmissões esportivas e reacts multiplataforma no YouTube.', insta: 'https://instagram.com/casimiro' }
-      ],
-      criadores_mid: [
-        { company: 'Tito Tech', cnpj: '42.980.112/0001-34', name: 'Diego Tito', title: 'Criador de Hardware', tech: ['OBS Studio', 'Amazon Associates'], rev: 'R$ 180.000 / ano', tax: 'Simples Nacional', desc: 'Canal de tecnologia focado em reviews de hardware gamer e montagens de PC.', insta: 'https://instagram.com/titotech' },
-        { company: 'Gabriela Jojo (Caju em Cena)', cnpj: '45.101.883/0001-02', name: 'Gabriela Joyce', title: 'Streamer de Gaming', tech: ['Twitch Sub', 'Discord Builder'], rev: 'R$ 72.000 / ano', tax: 'MEI', desc: 'Streamer em ascensão focada em Valorant e campeonatos amadores regionais.', insta: 'https://instagram.com/caju_em_cena' }
-      ],
-      fisio: [
-        { company: 'Clínica Fisio & Pilates Presidente Prudente', cnpj: '28.110.941/0001-50', name: 'Dra. Aline Mendes', title: 'Fisioterapeuta Sócia', tech: ['Instagram Ads', 'Doctoralia'], rev: 'R$ 310.000 / ano', tax: 'Simples Nacional', desc: 'Clínica especializada em reabilitação traumato-ortopédica e pilates clínico.', insta: 'https://instagram.com/fisio.prudente' }
-      ],
-      psicologia: [
-        { company: 'Humanamente Psicologia', cnpj: '35.402.663/0001-11', name: 'Dr. Lucas Ribeiro', title: 'Psicólogo Clínico', tech: ['WhatsApp Business', 'Google Maps'], rev: 'R$ 220.000 / ano', tax: 'Simples Nacional', desc: 'Consultório integrado de psicologia focado em Terapia Cognitivo-Comportamental.', insta: 'https://instagram.com/psicologia.humanamente' }
-      ],
-      personal: [
-        { company: 'Bruno Personal & Fitness Trainer', cnpj: '46.120.301/0001-90', name: 'Bruno Rodrigues', title: 'Personal Trainer', tech: ['MFit App', 'Instagram Ads'], rev: 'R$ 96.000 / ano', tax: 'MEI', desc: 'Consultoria online e treinos presenciais personalizados voltados para performance e emagrecimento.', insta: 'https://instagram.com/bruno_personal_fit' }
-      ],
-      academia: [
-        { company: 'Iron Prudentina Fitness', cnpj: '31.112.556/0001-44', name: 'Marcos Iron', title: 'Sócio-Fundador', tech: ['Pacto Gestão', 'Facebook Suite'], rev: 'R$ 780.000 / ano', tax: 'Simples Nacional', desc: 'Academia tradicional de musculação com ampla área de musculação e cross-training.', insta: 'https://instagram.com/ironprudentina' }
-      ]
-    };
-
-    const templates = localNiches[discoverySector] || localNiches['criadores_mid'];
+    const templates = contingencyNichesTemplates[discoverySector] || contingencyNichesTemplates['criadores_mid'];
 
     const mappedContingency = templates.map((item, idx) => {
       const cleanCompany = item.company;
@@ -1301,29 +1309,47 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
     if (aiApiKey) {
       try {
-        const prompt = `Analise este lead baseado nas diretrizes, playbook de vendas e nossos pacotes comerciais:
-        PLAYBOOK: "${companyGuidelines}"
+        const minRevText = qualificationRules.minRevenue === 'none' ? 'Sem restrição' : `Mínimo de R$ ${qualificationRules.minRevenue} / ano`;
+        const minEmpText = qualificationRules.minEmployees === 'none' ? 'Sem restrição' : `${qualificationRules.minEmployees} funcionários`;
+        
+        const prompt = `Analise este lead baseado nas diretrizes gerais, playbook de vendas, nossos pacotes comerciais e critérios de pontuação estabelecidos:
+        DIRETRIZES DO PLAYBOOK GERAIS: "${companyGuidelines}"
+        
+        CRITÉRIOS DE FIT EXIGIDOS:
+        - Faturamento Mínimo Aceito: ${minRevText}
+        - Porte Mínimo Aceito: ${minEmpText}
+        - Setores Autorizados: ${qualificationRules.allowedSectors.join(', ')}
+        - Tecnologias Desejadas: ${qualificationRules.requiredTechs || 'Qualquer'}
+        
+        PESOS DE IMPORTÂNCIA DO FIT SCORE:
+        - Aderência ao Setor/Nicho: ${qualificationRules.weightSector}%
+        - Presença de Tecnologias Requeridas: ${qualificationRules.weightTech}%
+        - Porte e Faturamento: ${qualificationRules.weightSizing}%
+        
         PACOTES DISPONÍVEIS E TICKET MINÍMO:
         ${JSON.stringify(packages.map(p => ({ nome: p.name, valor: p.price, desc: p.description })))}
         
-        LEAD:
+        LEAD PARA ANALISAR:
         - Empresa: ${lead.company}
         - Faturamento/Arrecadação: ${lead.revenue}
         - Porte: ${lead.size}
         - Fundação: ${lead.foundationYear}
         - Regime Tributário: ${lead.taxEstimate}
         - Setor: ${lead.sector}
+        - Tecnologias Identificadas: ${lead.tech ? lead.tech.join(', ') : 'Nenhuma'}
 
-        Instrução de Qualificação Comercial:
-        Determine se o lead tem capacidade financeira para pagar um dos nossos pacotes. O faturamento e regime de impostos da empresa devem justificar o ticket anual/mensal do serviço. Empresas MEI ou com faturamentos muito pequenos não devem qualificar se o ticket mínimo (R$ 4.500) comprometer mais do que 2% do faturamento anual deles.
+        Instrução de Avaliação Comercial:
+        1. Calcule o Fit Score de 0 a 100 com base na aderência aos critérios e pesos definidos acima.
+        2. Determine se o lead deve ser qualificado ("qualified": true) ou desqualificado ("qualified": false). A nota de corte mínima configurada para aprovação é de ${qualificationRules.minFitScore}%.
+        3. Se o faturamento for muito baixo ou se o setor for desautorizado, desqualifique e aponte a objeção.
         
         Retorne EXATAMENTE um objeto JSON com esta estrutura (sem markdown ou blocos de código):
         {
           "qualified": true ou false,
           "fitScore": 0 a 100,
-          "justification": "Justificativa detalhando a compatibilidade com o faturamento e ticket dos nossos serviços",
+          "justification": "Justificativa detalhada cruzando os dados do lead com nossas regras e pesos de corte",
           "recommendedPackage": "Nome do pacote mais recomendado ou 'Nenhum'",
-          "objection": "A maior objeção presumida relacionada ao budget/ticket",
+          "objection": "A maior objeção presumida relacionada ao budget/ticket/porte",
           "nextStep": "Próximo passo na abordagem"
         }`;
 
@@ -1356,45 +1382,54 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   };
 
   const runFallbackQualification = (lead) => {
-    const isMicro = lead.size.toLowerCase().includes('microempresa') || lead.revenue.toLowerCase().includes('mei') || lead.revenue.toLowerCase().includes('380.000') || lead.revenue.toLowerCase().includes('290.000') || lead.revenue.toLowerCase().includes('72.000') || lead.revenue.toLowerCase().includes('96.000');
-    const isMedium = lead.size.toLowerCase().includes('média') || lead.taxEstimate.toLowerCase().includes('presumido') || lead.revenue.toLowerCase().includes('6.200.000') || lead.revenue.toLowerCase().includes('8.500.000') || lead.revenue.toLowerCase().includes('180.000') || lead.revenue.toLowerCase().includes('140.000') || lead.revenue.toLowerCase().includes('310.000') || lead.revenue.toLowerCase().includes('220.000');
-    const isLarge = lead.size.toLowerCase().includes('grande') || lead.taxEstimate.toLowerCase().includes('real') || lead.revenue.toLowerCase().includes('24.000.000') || lead.revenue.toLowerCase().includes('15.000.000');
+    // Sector match
+    const isSectorAllowed = qualificationRules.allowedSectors.some(
+      s => lead.sector.toLowerCase().includes(s) || s.toLowerCase().includes(lead.sector.toLowerCase())
+    );
     
-    let fitScore = 50;
-    let qualified = false;
+    // Sizing/Revenue match
+    const isMicro = lead.size.toLowerCase().includes('microempresa') || 
+                    lead.revenue.toLowerCase().includes('mei') || 
+                    lead.revenue.toLowerCase().includes('72.000') || 
+                    lead.revenue.toLowerCase().includes('96.000') ||
+                    lead.revenue.toLowerCase().includes('110.000');
+                    
+    const isRevenueOk = qualificationRules.minRevenue === 'none' ||
+                         (qualificationRules.minRevenue === '100k' && !isMicro) ||
+                         (qualificationRules.minRevenue === '500k' && (lead.revenue.includes('8.500.000') || lead.revenue.includes('24.000.000') || lead.revenue.includes('1.800.000') || lead.revenue.includes('2.100.000') || lead.revenue.includes('1.250.000') || lead.revenue.includes('950.000') || lead.revenue.includes('780.000'))) ||
+                         (qualificationRules.minRevenue === '1M' && (lead.revenue.includes('8.500.000') || lead.revenue.includes('24.000.000') || lead.revenue.includes('1.800.000') || lead.revenue.includes('2.100.000')));
+
+    const isEmployeesOk = qualificationRules.minEmployees === 'none' ||
+                           (qualificationRules.minEmployees === '1-9') ||
+                           (qualificationRules.minEmployees === '10-49' && (lead.size.toLowerCase().includes('média') || lead.size.toLowerCase().includes('grande') || lead.size.toLowerCase().includes('10-49') || lead.size.toLowerCase().includes('50+'))) ||
+                           (qualificationRules.minEmployees === '50+' && (lead.size.toLowerCase().includes('grande') || lead.size.toLowerCase().includes('50+')));
+
+    let sectorScore = isSectorAllowed ? 100 : 20;
+    let sizingScore = (isRevenueOk && isEmployeesOk) ? 100 : (isRevenueOk || isEmployeesOk ? 60 : 30);
+    let techScore = lead.tech && lead.tech.length > 0 ? 90 : 50;
+
+    const fitScore = Math.round(
+      (sectorScore * (qualificationRules.weightSector / 100)) +
+      (sizingScore * (qualificationRules.weightSizing / 100)) +
+      (techScore * (qualificationRules.weightTech / 100))
+    );
+
+    const qualified = fitScore >= qualificationRules.minFitScore;
+    
     let justification = '';
     let recommendedPackage = 'Nenhum';
-    let objection = 'Sem faturamento suficiente para investimento em escala';
-    let nextStep = 'Nutrir lead com dicas orgânicas';
+    let objection = '';
+    let nextStep = '';
 
-    if (isMicro) {
-      fitScore = 30;
-      qualified = false;
-      justification = 'Desqualificado: Faturamento de comércio local ou micro-criador não comporta nosso menor ticket de R$ 4.500/mês sem sufocar a operação de caixa deles.';
-      recommendedPackage = 'Nenhum';
-      objection = 'Incompatibilidade extrema orçamentária para o Setup Outbound Start.';
-      nextStep = 'Enviar material institucional educativo de baixo custo.';
-    } else if (isLarge) {
-      fitScore = 98;
-      qualified = true;
-      recommendedPackage = 'Revenue Engine Enterprise';
-      justification = 'Excelente fit! O faturamento robusto em Lucro Presumido/Real justifica nosso ticket anual de R$ 16.500/mês.';
-      objection = 'Burocracia interna com equipe de compras/compliance';
-      nextStep = 'Agendar call executiva focada em ROI e automação de RevOps unificada.';
-    } else if (isMedium) {
-      fitScore = 85;
-      qualified = true;
-      recommendedPackage = 'Máquina Comercial CDR Scale';
-      justification = 'Aprovado: Faturamento confortável que se ajusta ao investimento de R$ 8.900/mês, possuindo ótimo potencial de ROI.';
-      objection = 'Surgimento de dúvidas operacionais se eles possuem SDR interno';
-      nextStep = 'Oferecer demonstração com fluxo de roteamento de leads rápido.';
+    if (qualified) {
+      justification = `Aprovado pelo Playbook: Ótima pontuação total (${fitScore}%) atendendo aos requisitos mínimos de nicho (${lead.sector}) e porte comercial (${lead.revenue}).`;
+      recommendedPackage = fitScore > 85 ? 'Revenue Engine Enterprise' : (fitScore > 65 ? 'Máquina Comercial CDR Scale' : 'Setup Outbound SDR Start');
+      objection = 'Dúvidas padrão sobre tempo de setup inicial';
+      nextStep = 'Agendar demonstração técnica da esteira Outbound';
     } else {
-      fitScore = 65;
-      qualified = true;
-      recommendedPackage = 'Setup Outbound SDR Start';
-      justification = 'Qualificado limitadamente: Empresa de médio porte estável que se encaixa no Setup de entrada de R$ 4.500/mês.';
-      objection = 'Risco na capacidade operacional inicial de atendimento';
-      nextStep = 'Iniciar cadência focada em Setup de aquecimento de caixas.';
+      justification = `Desqualificado: Nota de fit score (${fitScore}%) ficou abaixo da nota de corte configurada de ${qualificationRules.minFitScore}%.`;
+      objection = !isSectorAllowed ? 'Nicho de mercado desautorizado no Playbook' : 'Capacidade de faturamento/porte abaixo do mínimo exigido';
+      nextStep = 'Nutrir com materiais educativos digitais de baixo custo';
     }
 
     const result = {
@@ -1851,6 +1886,16 @@ O faturamento mapeado ajudou a priorizar empresas estáveis de nicho (fisioterap
               isQualifyingLead={isQualifyingLead}
               handleAiQualification={handleAiQualification}
               handleDeleteLead={handleDeleteLead}
+            />
+          )}
+
+          {activeTab === 'qualification' && (
+            <QualificationTab
+              qualificationRules={qualificationRules}
+              setQualificationRules={customSetQualificationRules}
+              companyGuidelines={companyGuidelines}
+              setCompanyGuidelines={customSetCompanyGuidelines}
+              showToast={showToast}
             />
           )}
 
